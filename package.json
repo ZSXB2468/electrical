@@ -1,0 +1,19 @@
+{
+  "name": "electrical",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "vite build",
+    "debug": "vite dev"
+  },
+  "dependencies": {
+    "three": "^0.180.0"
+  },
+  "devDependencies": {
+    "@types/three": "^0.180.0",
+    "typescript": "^5.5.3",
+    "vite": "^7.1.4"
+  },
+  "private": true
+}
