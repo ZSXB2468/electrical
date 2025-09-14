@@ -363,6 +363,8 @@ const mouse = new THREE.Vector2();
 let isDragging = false;
 let dragTarget: Charge | null = null;
 let dragOffset = new THREE.Vector3();
+let dragPlane = new THREE.Plane(); // 动态拖拽平面
+let dragPlaneDistance = 0; // 拖拽平面到相机的距离
 
 // 获取鼠标/触摸位置
 function getPointerPosition(event: MouseEvent | Touch): THREE.Vector2 {
@@ -400,6 +402,31 @@ function constrainToLine(position: THREE.Vector3): THREE.Vector3 {
     return constrainedPosition;
 }
 
+// 创建动态拖拽平面
+function createDragPlane(targetPosition: THREE.Vector3) {
+    // 计算目标点到相机的距离
+    dragPlaneDistance = targetPosition.distanceTo(camera.position);
+
+    // 创建垂直于相机视线的平面
+    const cameraDirection = new THREE.Vector3();
+    camera.getWorldDirection(cameraDirection);
+
+    // 平面法向量为相机方向
+    dragPlane.setFromNormalAndCoplanarPoint(cameraDirection, targetPosition);
+}
+
+// 在拖拽平面上投射射线
+function projectOnDragPlane(mouse: THREE.Vector2): THREE.Vector3 | null {
+    raycaster.setFromCamera(mouse, camera);
+    const intersection = new THREE.Vector3();
+
+    if (raycaster.ray.intersectPlane(dragPlane, intersection)) {
+        return intersection;
+    }
+
+    return null;
+}
+
 // 鼠标事件
 let lastClickTime = 0;
 let clickTarget: Charge | null = null;
@@ -419,10 +446,13 @@ renderer.domElement.addEventListener('mousedown', (event) => {
             dragTarget = charge;
             controls.enabled = false;
 
-            raycaster.setFromCamera(mouse, camera);
-            const intersects = raycaster.intersectObject(charge.sphere);
-            if (intersects.length > 0) {
-                dragOffset.copy(intersects[0].point).sub(charge.position);
+            // 创建动态拖拽平面
+            createDragPlane(charge.position);
+
+            // 计算拖拽偏移
+            const projectedPoint = projectOnDragPlane(mouse);
+            if (projectedPoint) {
+                dragOffset.copy(projectedPoint).sub(charge.position);
             }
         }
 
@@ -436,12 +466,9 @@ renderer.domElement.addEventListener('mousedown', (event) => {
 renderer.domElement.addEventListener('mousemove', (event) => {
     if (isDragging && dragTarget) {
         mouse.copy(getPointerPosition(event));
-        raycaster.setFromCamera(mouse, camera);
 
-        // 在Z=0平面上投射
-        const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
-        const intersection = new THREE.Vector3();
-        raycaster.ray.intersectPlane(plane, intersection);
+        // 在动态拖拽平面上投射
+        const intersection = projectOnDragPlane(mouse);
 
         if (intersection) {
             const newPosition = intersection.sub(dragOffset);
@@ -472,10 +499,13 @@ renderer.domElement.addEventListener('touchstart', (event) => {
             dragTarget = charge;
             controls.enabled = false;
 
-            raycaster.setFromCamera(mouse, camera);
-            const intersects = raycaster.intersectObject(charge.sphere);
-            if (intersects.length > 0) {
-                dragOffset.copy(intersects[0].point).sub(charge.position);
+            // 创建动态拖拽平面
+            createDragPlane(charge.position);
+
+            // 计算拖拽偏移
+            const projectedPoint = projectOnDragPlane(mouse);
+            if (projectedPoint) {
+                dragOffset.copy(projectedPoint).sub(charge.position);
             }
         }
     }
@@ -486,11 +516,9 @@ renderer.domElement.addEventListener('touchmove', (event) => {
     if (isDragging && dragTarget && event.touches.length === 1) {
         const touch = event.touches[0];
         mouse.copy(getPointerPosition(touch));
-        raycaster.setFromCamera(mouse, camera);
 
-        const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
-        const intersection = new THREE.Vector3();
-        raycaster.ray.intersectPlane(plane, intersection);
+        // 在动态拖拽平面上投射
+        const intersection = projectOnDragPlane(mouse);
 
         if (intersection) {
             const newPosition = intersection.sub(dragOffset);
